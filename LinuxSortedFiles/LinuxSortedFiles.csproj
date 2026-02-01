@@ -4,7 +4,7 @@
     <Version>1.0.1</Version>
     <Authors>NepuShiro</Authors>
     <TargetFramework>net10.0</TargetFramework>
-    <RepositoryUrl>https://github.com/NepuShiro/LinuxSortedFiles</RepositoryUrl>
+    <RepositoryUrl>https://github.com/NepuShiro/ResoniteLinuxSortedFiles</RepositoryUrl>
     <PackageId>NepuShiro.LinuxSortedFiles</PackageId>
     <Product>LinuxSortedFiles</Product>
     <RootNamespace>LinuxSortedFiles</RootNamespace>
