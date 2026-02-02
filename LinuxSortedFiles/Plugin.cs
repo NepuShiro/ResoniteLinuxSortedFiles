@@ -15,29 +15,42 @@ public class Plugin : BasePlugin
 {
     internal static new ManualLogSource Log = null!;
 
-    private static bool _isLinux; 
-
     public override void Load()
     {
         Log = base.Log;
-        
-        _isLinux = OperatingSystem.IsLinux();
+
+        if (!OperatingSystem.IsLinux())
+        {
+            Log.LogFatal("This plugin is only for Linux!");
+            return;
+        }
 
         HarmonyInstance.PatchAll();
 
         Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
     }
-
-    [HarmonyPatch(typeof(FileBrowser), "Refresh", MethodType.Async)]
+    
+    [HarmonyPatch]
     public static class Thingy
     {
         private static readonly MethodInfo GetFilesOriginal = AccessTools.Method(typeof(Directory), "GetFiles", new Type[] { typeof(string) });
         private static readonly MethodInfo GetDirsOriginal = AccessTools.Method(typeof(Directory), "GetDirectories", new Type[] { typeof(string) });
+        private static readonly MethodInfo GetLogicalDrivesOriginal = AccessTools.Method(typeof(Directory), "GetLogicalDrives");
 
         private static readonly MethodInfo GetFilesReplacement = AccessTools.Method(typeof(Thingy), nameof(GetFiles), new Type[] { typeof(string) });
         private static readonly MethodInfo GetDirsReplacement = AccessTools.Method(typeof(Thingy), nameof(GetDirectories), new Type[] { typeof(string) });
+        private static readonly MethodInfo GetLogicalDrivesReplacement = AccessTools.Method(typeof(Thingy), nameof(GetLogicalDrives));
+        
+        [HarmonyPrefix, HarmonyPatch(typeof(BrowserDialog), "BeginGenerateToolPanel")]
+        public static void BeginGenerateToolPanel_Prefix(BrowserDialog __instance)
+        {
+            if (__instance is not FileBrowser fileBrowser) return;
 
-        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+            fileBrowser.CurrentPath.Value = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        }
+
+        [HarmonyTranspiler, HarmonyPatch(typeof(FileBrowser), "Refresh", MethodType.Async)]
+        private static IEnumerable<CodeInstruction> Refresh_Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             foreach (CodeInstruction instruction in instructions)
             {
@@ -54,6 +67,12 @@ public class Plugin : BasePlugin
                         yield return new CodeInstruction(OpCodes.Call, GetDirsReplacement);
                         continue;
                     }
+
+                    if (method == GetLogicalDrivesOriginal)
+                    {
+                        yield return new CodeInstruction(OpCodes.Call, GetLogicalDrivesReplacement);
+                        continue;
+                    }
                 }
 
                 yield return instruction;
@@ -64,10 +83,7 @@ public class Plugin : BasePlugin
         {
             string[] files = Directory.GetFiles(path);
 
-            if (_isLinux)
-            {
-                Array.Sort(files, StringComparer.OrdinalIgnoreCase);
-            }
+            Array.Sort(files, StringComparer.OrdinalIgnoreCase);
 
             return files;
         }
@@ -76,12 +92,14 @@ public class Plugin : BasePlugin
         {
             string[] dirs = Directory.GetDirectories(path);
 
-            if (_isLinux)
-            {
-                Array.Sort(dirs, StringComparer.OrdinalIgnoreCase);
-            }
+            Array.Sort(dirs, StringComparer.OrdinalIgnoreCase);
 
             return dirs;
+        }
+
+        public static string[] GetLogicalDrives()
+        {
+            return ["/"];
         }
     }
 }
